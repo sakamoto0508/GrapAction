@@ -11,7 +11,7 @@ public class PlayerCam : MonoBehaviour
     private InputBuffer _inputBuffer;
     private Vector2 _currentInput;
 
-    public void RegisterInputAction()
+    private void RegisterInputAction()
     {
         if (_inputBuffer != null)
         {
