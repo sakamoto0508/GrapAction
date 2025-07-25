@@ -67,6 +67,7 @@ public class PlayerMove : MonoBehaviour
         if (_isGround && _readyToJump)
         {
             _readyToJump = false;
+           
             _rb.linearVelocity = new Vector3(_rb.linearVelocity.x, 0f, _rb.linearVelocity.z);
             _rb.AddForce(transform.up * _jumpPower, ForceMode.Impulse);
 
@@ -85,6 +86,12 @@ public class PlayerMove : MonoBehaviour
             _isGround = true;
         }
     }
-
+    private void OnCollisionExit(Collision collision)
+    {
+        if (collision.gameObject.tag == ("Ground"))
+        {
+            _isGround = false;
+        }
+    }
 
 }
