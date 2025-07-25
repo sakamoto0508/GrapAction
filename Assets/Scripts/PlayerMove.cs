@@ -1,14 +1,20 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 public class PlayerMove : MonoBehaviour
 {
     [SerializeField] private float _moveSpeed = 10f;
+    [SerializeField] private float _walkSpeed = 5f;
+    [SerializeField] private float _sprintSpeed = 10f;
     [SerializeField] private float _jumpPower = 5f;
     [SerializeField] private float _jumpCooldown = 2f;
     [SerializeField] private float _ariMultiplier;
     [SerializeField] private Transform _orientation;
+    private MovementState _state;
     private bool _isGround = true;
+    private bool _isSprint = false;
     private bool _readyToJump = false;
     private Vector2 _currentInput;
     private Rigidbody _rb;
@@ -18,9 +24,10 @@ public class PlayerMove : MonoBehaviour
         _inputBuffer.MoveAction.performed += OnInputMove;
         _inputBuffer.MoveAction.canceled += OnInputMove;
         _inputBuffer.JumpAction.started += OnInputJump;
+        _inputBuffer.SprintAction.started += OnInputSprint;
     }
 
-
+    
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -30,14 +37,13 @@ public class PlayerMove : MonoBehaviour
         _rb.freezeRotation = true;
         _readyToJump = true;
     }
-
+    private void Update()
+    {
+        StateHandler();
+    }
     private void FixedUpdate()
     {
-        //Vector3 inputDir = new Vector3(_currentInput.x, 0, _currentInput.y);
-        //Vector3 velocity = inputDir.normalized * _playerSpeed;
-
-        //velocity.y = _rb.linearVelocity.y;
-        //_rb.linearVelocity = velocity;
+        
         if (_isGround)
         {
             Vector3 inputDirGround = _orientation.forward * _currentInput.y + _orientation.right * _currentInput.x;
@@ -57,13 +63,19 @@ public class PlayerMove : MonoBehaviour
     {
         _currentInput = context.ReadValue<Vector2>();
     }
+    private void OnInputSprint(InputAction.CallbackContext context)
+    {
+        if (!_isSprint)
+        {
+            _isSprint = true;
+        }
+        else
+        {
+            _isSprint = false;
+        }
+    }
     private void OnInputJump(InputAction.CallbackContext context)
     {
-        //if (_isGround)
-        //{
-        //    _rb.AddForce(transform.up * _jumpPower, ForceMode.Impulse);
-        //    _isGround = false;
-        //}
         if (_isGround && _readyToJump)
         {
             _readyToJump = false;
@@ -72,6 +84,24 @@ public class PlayerMove : MonoBehaviour
             _rb.AddForce(transform.up * _jumpPower, ForceMode.Impulse);
 
             Invoke(nameof(ResetJump), _jumpCooldown);
+        }
+    }
+
+    private void StateHandler()
+    {
+        if (_isGround && _isSprint)
+        {
+            _state=MovementState.sprinting;
+            _moveSpeed=_sprintSpeed;
+        }
+        else if (_isGround)
+        {
+            _state = MovementState.walking;
+            _moveSpeed = _walkSpeed;
+        }
+        else
+        {
+            _state = MovementState.air;
         }
     }
 
@@ -93,5 +123,10 @@ public class PlayerMove : MonoBehaviour
             _isGround = false;
         }
     }
-
+    private enum MovementState
+    {
+        walking,
+        sprinting,
+        air
+    }
 }

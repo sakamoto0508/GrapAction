@@ -6,14 +6,17 @@ public class InputBuffer : MonoBehaviour
     private const string MOVE_ACTION = "Move";
     private const string LOOK_ACTION = "Look";
     private const string JUMP_ACTION = "Jump";
+    private const string SPRINT_ACTION = "Sprint";
 
     public InputAction MoveAction => _moveAction;
     public InputAction LookAction => _lookAction;
     public InputAction JumpAction => _jumpAction;
+    public InputAction SprintAction => _sprintAction;
 
     private InputAction _moveAction;
     private InputAction _lookAction;
     private InputAction _jumpAction;
+    private InputAction _sprintAction;
 
     private void Awake()
     {
@@ -22,6 +25,7 @@ public class InputBuffer : MonoBehaviour
             _moveAction = playerInput.actions[MOVE_ACTION];
             _lookAction = playerInput.actions[LOOK_ACTION];
             _jumpAction = playerInput.actions[JUMP_ACTION];
+            _sprintAction=playerInput.actions[SPRINT_ACTION];
         }
     }
 }
