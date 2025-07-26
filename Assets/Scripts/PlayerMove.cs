@@ -8,18 +8,23 @@ public class PlayerMove : MonoBehaviour
     [SerializeField] private float _sprintSpeed = 10f;
     [SerializeField] private float _groundDrag;
     private float _moveSpeed = 10f;
-    private bool _isSprint = false;
 
     [Header("GroundCheck")]
     [SerializeField] private float _playerHeight;
     [SerializeField] private LayerMask _whatIsGround;
     private bool _isGround = true;
 
-    [Header("Jump")]
+    [Header("Jumping")]
     [SerializeField] private float _jumpPower = 5f;
     [SerializeField] private float _jumpCooldown = 2f;
     [SerializeField] private float _ariMultiplier = 0.5f;
     private bool _readyToJump = false;
+    private bool _isAir = false;
+
+    [Header("Crouching")]
+    [SerializeField] private float _couchSpeed = 3f;
+    [SerializeField] private float _crouchYScale;
+    private float _startYScale;
 
     [SerializeField] private Transform _orientation;
     private MovementState _state;
@@ -32,6 +37,7 @@ public class PlayerMove : MonoBehaviour
         _inputBuffer.MoveAction.canceled += OnInputMove;
         _inputBuffer.JumpAction.started += OnInputJump;
         _inputBuffer.SprintAction.started += OnInputSprint;
+        _inputBuffer.CrouchAction.started += OnInputCrouch;
     }
 
 
@@ -43,9 +49,14 @@ public class PlayerMove : MonoBehaviour
         RegisterInputAction();
         _rb.freezeRotation = true;
         _readyToJump = true;
+        _startYScale = transform.localScale.y;
     }
     private void Update()
     {
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            Debug.Log(_state);
+        }
         // ground check
         _isGround = Physics.Raycast(transform.position, Vector3.down, _playerHeight * 0.5f + 0.2f, _whatIsGround);
         StateHandler();
@@ -60,6 +71,7 @@ public class PlayerMove : MonoBehaviour
             Vector3 velocity = inputDirGround.normalized * _moveSpeed;
             velocity.y = _rb.linearVelocity.y;
             _rb.linearVelocity = velocity;
+            _isAir = false;
         }
         else if (!_isGround)
         {
@@ -67,6 +79,7 @@ public class PlayerMove : MonoBehaviour
             Vector3 velocity = inputDirAir.normalized * _moveSpeed * _ariMultiplier;
             velocity.y = _rb.linearVelocity.y;
             _rb.linearVelocity = velocity;
+            _isAir = true;
         }
     }
     private void OnInputMove(InputAction.CallbackContext context)
@@ -75,13 +88,15 @@ public class PlayerMove : MonoBehaviour
     }
     private void OnInputSprint(InputAction.CallbackContext context)
     {
-        if (!_isSprint)
+        if (_state == MovementState.crouching)
+            return;
+        if (_state == MovementState.walking)
         {
-            _isSprint = true;
+            _state = MovementState.sprinting;
         }
         else
         {
-            _isSprint = false;
+            _state = MovementState.walking;
         }
     }
     private void OnInputJump(InputAction.CallbackContext context)
@@ -96,47 +111,69 @@ public class PlayerMove : MonoBehaviour
             Invoke(nameof(ResetJump), _jumpCooldown);
         }
     }
-
-    private void StateHandler()
+    private void OnInputCrouch(InputAction.CallbackContext context)
     {
-        if (_isGround && _isSprint)
+        if (_state != MovementState.crouching || _isAir == true)
         {
-            _state = MovementState.sprinting;
-            _moveSpeed = _sprintSpeed;
-        }
-        else if (_isGround)
-        {
-            _state = MovementState.walking;
-            _moveSpeed = _walkSpeed;
+            _state = MovementState.crouching;
+            transform.localScale = new Vector3(transform.localScale.x, _crouchYScale, transform.localScale.z);
+
         }
         else
         {
-            _state = MovementState.air;
+            _state = MovementState.walking;
+            transform.localScale = new Vector3(transform.localScale.x, _startYScale, transform.localScale.z);
         }
+    }
+
+    private void StateHandler()
+    {
+        //TODOなんか速度とカメラからプレイヤーの動きの向き
+        //switch,enum
+        switch (_state)
+        {
+            case MovementState.walking:
+                _moveSpeed = _walkSpeed;
+                break;
+            case MovementState.crouching:
+                _moveSpeed = _couchSpeed;
+                break;
+            case MovementState.sprinting:
+                _moveSpeed = _sprintSpeed;
+                break;
+        }
+        //if (_isCrouch)
+        //{
+        //    _state = MovementState.crouching;
+        //    _moveSpeed = _couchSpeed;
+        //}
+
+        //if (_isGround && _isSprint)
+        //{
+        //    _state = MovementState.sprinting;
+        //    _moveSpeed = _sprintSpeed;
+        //}
+        //else if (_isGround)
+        //{
+        //    _state = MovementState.walking;
+        //    _moveSpeed = _walkSpeed;
+        //}
+        //else
+        //{
+        //    _state = MovementState.air;
+        //}
     }
 
     private void ResetJump()
     {
         _readyToJump = true;
     }
-    //private void OnCollisionEnter(Collision collision)
-    //{
-    //    if (collision.gameObject.tag == ("Ground"))
-    //    {
-    //        _isGround = true;
-    //    }
-    //}
-    //private void OnCollisionExit(Collision collision)
-    //{
-    //    if (collision.gameObject.tag == ("Ground"))
-    //    {
-    //        _isGround = false;
-    //    }
-    //}
+
     private enum MovementState
     {
         walking,
         sprinting,
+        crouching,
         air
     }
 }
