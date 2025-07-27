@@ -26,7 +26,7 @@ public class PlayerMove : MonoBehaviour
     [SerializeField] private float _crouchYScale;
     private float _startYScale;
 
-    [SerializeField] private Transform _orientation;
+    [SerializeField] private Transform _playerCamera;
     private MovementState _state;
     private Vector2 _currentInput;
     private Rigidbody _rb;
@@ -64,10 +64,9 @@ public class PlayerMove : MonoBehaviour
     }
     private void FixedUpdate()
     {
-
         if (_isGround)
         {
-            Vector3 inputDirGround = _orientation.forward * _currentInput.y + _orientation.right * _currentInput.x;
+            Vector3 inputDirGround = _playerCamera.forward * _currentInput.y + _playerCamera.right * _currentInput.x;
             Vector3 velocity = inputDirGround.normalized * _moveSpeed;
             velocity.y = _rb.linearVelocity.y;
             _rb.linearVelocity = velocity;
@@ -75,7 +74,7 @@ public class PlayerMove : MonoBehaviour
         }
         else if (!_isGround)
         {
-            Vector3 inputDirAir = _orientation.forward * _currentInput.y + _orientation.right * _currentInput.x;
+            Vector3 inputDirAir = _playerCamera.forward * _currentInput.y + _playerCamera.right * _currentInput.x;
             Vector3 velocity = inputDirAir.normalized * _moveSpeed * _ariMultiplier;
             velocity.y = _rb.linearVelocity.y;
             _rb.linearVelocity = velocity;
@@ -128,8 +127,6 @@ public class PlayerMove : MonoBehaviour
 
     private void StateHandler()
     {
-        //TODOなんか速度とカメラからプレイヤーの動きの向き
-        //switch,enum
         switch (_state)
         {
             case MovementState.walking:
@@ -142,26 +139,6 @@ public class PlayerMove : MonoBehaviour
                 _moveSpeed = _sprintSpeed;
                 break;
         }
-        //if (_isCrouch)
-        //{
-        //    _state = MovementState.crouching;
-        //    _moveSpeed = _couchSpeed;
-        //}
-
-        //if (_isGround && _isSprint)
-        //{
-        //    _state = MovementState.sprinting;
-        //    _moveSpeed = _sprintSpeed;
-        //}
-        //else if (_isGround)
-        //{
-        //    _state = MovementState.walking;
-        //    _moveSpeed = _walkSpeed;
-        //}
-        //else
-        //{
-        //    _state = MovementState.air;
-        //}
     }
 
     private void ResetJump()
