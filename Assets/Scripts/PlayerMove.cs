@@ -53,10 +53,6 @@ public class PlayerMove : MonoBehaviour
     }
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            Debug.Log(_state);
-        }
         // ground check
         _isGround = Physics.Raycast(transform.position, Vector3.down, _playerHeight * 0.5f + 0.2f, _whatIsGround);
         StateHandler();
