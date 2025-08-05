@@ -3,26 +3,29 @@ using UnityEngine.InputSystem;
 
 public class PlayerMove : MonoBehaviour
 {
-    [Header("Movement")]
-    [SerializeField] private float _walkSpeed = 5f;
+    [Header("Movement")] [SerializeField] private float _walkSpeed = 5f;
     [SerializeField] private float _sprintSpeed = 10f;
     [SerializeField] private float _groundDrag;
     private float _moveSpeed = 10f;
 
-    [Header("GroundCheck")]
-    [SerializeField] private float _playerHeight;
+    [Header("GroundCheck")] [SerializeField]
+    private float _playerHeight;
+
     [SerializeField] private LayerMask _whatIsGround;
     private bool _isGround = true;
 
-    [Header("Jumping")]
-    [SerializeField] private float _jumpPower = 5f;
+    [Header("Slope Handling")] [SerializeField]
+    private float _maxSlopeAngle;
+
+    private RaycastHit _slopeHit;
+
+    [Header("Jumping")] [SerializeField] private float _jumpPower = 5f;
     [SerializeField] private float _jumpCooldown = 2f;
     [SerializeField] private float _ariMultiplier = 0.5f;
     private bool _readyToJump = false;
     private bool _isAir = false;
 
-    [Header("Crouching")]
-    [SerializeField] private float _couchSpeed = 3f;
+    [Header("Crouching")] [SerializeField] private float _couchSpeed = 3f;
     [SerializeField] private float _crouchYScale;
     private float _startYScale;
 
@@ -31,6 +34,7 @@ public class PlayerMove : MonoBehaviour
     private Vector2 _currentInput;
     private Rigidbody _rb;
     private InputBuffer _inputBuffer;
+
     private void RegisterInputAction()
     {
         _inputBuffer.MoveAction.performed += OnInputMove;
@@ -51,15 +55,21 @@ public class PlayerMove : MonoBehaviour
         _readyToJump = true;
         _startYScale = transform.localScale.y;
     }
+
     private void Update()
     {
         // ground check
         _isGround = Physics.Raycast(transform.position, Vector3.down, _playerHeight * 0.5f + 0.2f, _whatIsGround);
         StateHandler();
-
     }
+
     private void FixedUpdate()
     {
+        if (OnSlope())
+        {
+            //Todo
+        }
+        
         if (_isGround)
         {
             Vector3 inputDirGround = _playerCamera.forward * _currentInput.y + _playerCamera.right * _currentInput.x;
@@ -77,10 +87,34 @@ public class PlayerMove : MonoBehaviour
             _isAir = true;
         }
     }
+
+    private bool OnSlope()
+    {
+        //プレイヤーから下方向にRaycastを飛ばしヒットしたオブジェクトの情報を保存するマックスマックス距離まで
+        if (Physics.Raycast(transform.position, Vector3.down,
+                out _slopeHit, _playerHeight * 0.5f + 0.3f))
+        {
+            //傾斜の角度を計算
+            float angle = Vector3.Angle(Vector3.up, _slopeHit.normal);
+            //角度が最大傾斜角度より小さく、ゼロでない場合はboolがtrue
+            return angle < _maxSlopeAngle && angle != 0;
+        }
+
+        return false;
+    }
+
+    //通常の移動方向を斜面に投影するメソッド
+    private Vector3 GetSlopeMoveDirection()
+    {
+        //平面に垂直な法線ベクトルによって定義される平面上にベクトルを射影する。
+        return Vector3.ProjectOnPlane(_playerCamera.forward, _slopeHit.normal).normalized;
+    }
+
     private void OnInputMove(InputAction.CallbackContext context)
     {
         _currentInput = context.ReadValue<Vector2>();
     }
+
     private void OnInputSprint(InputAction.CallbackContext context)
     {
         if (_state == MovementState.crouching)
@@ -94,6 +128,7 @@ public class PlayerMove : MonoBehaviour
             _state = MovementState.walking;
         }
     }
+
     private void OnInputJump(InputAction.CallbackContext context)
     {
         if (_isGround && _readyToJump)
@@ -106,13 +141,13 @@ public class PlayerMove : MonoBehaviour
             Invoke(nameof(ResetJump), _jumpCooldown);
         }
     }
+
     private void OnInputCrouch(InputAction.CallbackContext context)
     {
         if (_state != MovementState.crouching || _isAir == true)
         {
             _state = MovementState.crouching;
             transform.localScale = new Vector3(transform.localScale.x, _crouchYScale, transform.localScale.z);
-
         }
         else
         {
