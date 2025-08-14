@@ -1,31 +1,34 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 public class PlayerMove : MonoBehaviour
 {
-    [Header("Movement")] [SerializeField] private float _walkSpeed = 5f;
+    [Header("Movement")] 
+    [SerializeField] private float _walkSpeed = 5f;
     [SerializeField] private float _sprintSpeed = 10f;
     [SerializeField] private float _groundDrag;
     private float _moveSpeed = 10f;
 
-    [Header("GroundCheck")] [SerializeField]
-    private float _playerHeight;
-
+    [Header("GroundCheck")] 
+    [SerializeField] private float _playerHeight;
     [SerializeField] private LayerMask _whatIsGround;
     private bool _isGround = true;
 
-    [Header("Slope Handling")] [SerializeField]
-    private float _maxSlopeAngle;
-
+    [Header("Slope Handling")] 
+    [SerializeField] private float _maxSlopeAngle;
+    private bool _exitingSlope=false;
     private RaycastHit _slopeHit;
 
-    [Header("Jumping")] [SerializeField] private float _jumpPower = 5f;
+    [Header("Jumping")]
+    [SerializeField] private float _jumpPower = 5f;
     [SerializeField] private float _jumpCooldown = 2f;
-    [SerializeField] private float _ariMultiplier = 0.5f;
+    [SerializeField] private float _airMultiplier = 0.5f;
     private bool _readyToJump = false;
     private bool _isAir = false;
 
-    [Header("Crouching")] [SerializeField] private float _couchSpeed = 3f;
+    [Header("Crouching")]
+    [SerializeField] private float _crouchSpeed = 3f;
     [SerializeField] private float _crouchYScale;
     private float _startYScale;
 
@@ -44,6 +47,14 @@ public class PlayerMove : MonoBehaviour
         _inputBuffer.CrouchAction.started += OnInputCrouch;
     }
 
+    private void OnDestroy()
+    {
+        _inputBuffer.MoveAction.performed -= OnInputMove;
+        _inputBuffer.MoveAction.canceled -= OnInputMove;
+        _inputBuffer.JumpAction.started -= OnInputJump;
+        _inputBuffer.SprintAction.started -= OnInputSprint;
+        _inputBuffer.CrouchAction.started -= OnInputCrouch;
+    }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -65,27 +76,54 @@ public class PlayerMove : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (OnSlope())
+        if (OnSlope() && !_exitingSlope)
         {
-            //Todo
+            SlopeMovement();
         }
-        
-        if (_isGround)
+        else if (_isGround)
         {
-            Vector3 inputDirGround = _playerCamera.forward * _currentInput.y + _playerCamera.right * _currentInput.x;
-            Vector3 velocity = inputDirGround.normalized * _moveSpeed;
-            velocity.y = _rb.linearVelocity.y;
-            _rb.linearVelocity = velocity;
-            _isAir = false;
+            GroundMovement();
         }
         else if (!_isGround)
         {
-            Vector3 inputDirAir = _playerCamera.forward * _currentInput.y + _playerCamera.right * _currentInput.x;
-            Vector3 velocity = inputDirAir.normalized * _moveSpeed * _ariMultiplier;
-            velocity.y = _rb.linearVelocity.y;
-            _rb.linearVelocity = velocity;
-            _isAir = true;
+            AirMovement();
         }
+        _rb.useGravity = !OnSlope();
+    }
+    private void SlopeMovement()
+    {
+        //平面に垂直な法線ベクトルによって定義される平面上にベクトルを射影する。
+        //第一引数平面に投影したいベクトル、第二引数投影s会の平面の法線ベクトル（垂直な方向）
+        Vector3 slopeForward = Vector3.ProjectOnPlane(_playerCamera.forward, _slopeHit.normal).normalized;
+        Vector3 slopeRight = Vector3.ProjectOnPlane(_playerCamera.right, _slopeHit.normal).normalized;
+        // プレイヤーの入力を坂の方向に合わせて変換
+        Vector3 inputOnSlope = slopeForward * _currentInput.y + slopeRight * _currentInput.x;
+        Vector3 moveDir = inputOnSlope.normalized * _moveSpeed;
+        float yVel = _rb.linearVelocity.y;
+        _rb.linearVelocity = new Vector3(moveDir.x, yVel, moveDir.z);
+        // 坂を上がるときに浮かないよう下向きの力を追加
+        if (_rb.linearVelocity.y > 0 && !_exitingSlope)
+        {
+            _rb.AddForce(Vector3.down * 98f, ForceMode.Force);
+        }
+        _isAir = false;
+    }
+    private void GroundMovement()
+    {
+        Vector3 inputDir = _playerCamera.forward * _currentInput.y + _playerCamera.right * _currentInput.x;
+        float yVel = _rb.linearVelocity.y;
+        Vector3 moveXZ = inputDir.normalized * _moveSpeed;
+        _rb.linearVelocity = new Vector3(moveXZ.x, yVel, moveXZ.z);
+        _isAir = false;
+    }
+
+    private void AirMovement()
+    {
+        Vector3 inputDir = _playerCamera.forward * _currentInput.y + _playerCamera.right * _currentInput.x;
+        float yVel = _rb.linearVelocity.y;
+        Vector3 moveXZ = inputDir.normalized * _moveSpeed * _airMultiplier;
+        _rb.linearVelocity = new Vector3(moveXZ.x, yVel, moveXZ.z);
+        _isAir = true;
     }
 
     private bool OnSlope()
@@ -101,13 +139,6 @@ public class PlayerMove : MonoBehaviour
         }
 
         return false;
-    }
-
-    //通常の移動方向を斜面に投影するメソッド
-    private Vector3 GetSlopeMoveDirection()
-    {
-        //平面に垂直な法線ベクトルによって定義される平面上にベクトルを射影する。
-        return Vector3.ProjectOnPlane(_playerCamera.forward, _slopeHit.normal).normalized;
     }
 
     private void OnInputMove(InputAction.CallbackContext context)
@@ -131,20 +162,19 @@ public class PlayerMove : MonoBehaviour
 
     private void OnInputJump(InputAction.CallbackContext context)
     {
-        if (_isGround && _readyToJump)
+        if ((OnSlope() || _isGround) && _readyToJump)
         {
             _readyToJump = false;
-
+            _exitingSlope = true;
             _rb.linearVelocity = new Vector3(_rb.linearVelocity.x, 0f, _rb.linearVelocity.z);
             _rb.AddForce(transform.up * _jumpPower, ForceMode.Impulse);
-
             Invoke(nameof(ResetJump), _jumpCooldown);
         }
     }
 
     private void OnInputCrouch(InputAction.CallbackContext context)
     {
-        if (_state != MovementState.crouching || _isAir == true)
+        if (_state != MovementState.crouching && !_isAir)
         {
             _state = MovementState.crouching;
             transform.localScale = new Vector3(transform.localScale.x, _crouchYScale, transform.localScale.z);
@@ -164,7 +194,7 @@ public class PlayerMove : MonoBehaviour
                 _moveSpeed = _walkSpeed;
                 break;
             case MovementState.crouching:
-                _moveSpeed = _couchSpeed;
+                _moveSpeed = _crouchSpeed;
                 break;
             case MovementState.sprinting:
                 _moveSpeed = _sprintSpeed;
@@ -175,6 +205,7 @@ public class PlayerMove : MonoBehaviour
     private void ResetJump()
     {
         _readyToJump = true;
+        _exitingSlope = false;
     }
 
     private enum MovementState
