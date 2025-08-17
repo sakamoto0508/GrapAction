@@ -9,6 +9,7 @@ public class PlayerMove : MonoBehaviour
     [SerializeField] private float _sprintSpeed = 10f;
     [SerializeField] private float _groundDrag;
     private float _moveSpeed = 10f;
+    private Vector2 _currentInput;
 
     [Header("GroundCheck")] 
     [SerializeField] private float _playerHeight;
@@ -32,11 +33,12 @@ public class PlayerMove : MonoBehaviour
     [SerializeField] private float _crouchYScale;
     private float _startYScale;
 
+    [Header("References")]
     [SerializeField] private Transform _playerCamera;
-    private MovementState _state;
-    private Vector2 _currentInput;
+    private PlayerState _playerState;
     private Rigidbody _rb;
     private InputBuffer _inputBuffer;
+    
 
     private void RegisterInputAction()
     {
@@ -61,6 +63,7 @@ public class PlayerMove : MonoBehaviour
     {
         _rb = GetComponent<Rigidbody>();
         _inputBuffer = FindAnyObjectByType<InputBuffer>();
+        _playerState = GetComponent<PlayerState>();
         RegisterInputAction();
         _rb.freezeRotation = true;
         _readyToJump = true;
@@ -148,15 +151,15 @@ public class PlayerMove : MonoBehaviour
 
     private void OnInputSprint(InputAction.CallbackContext context)
     {
-        if (_state == MovementState.crouching)
+        if (_playerState.CurrentState == PlayerState.PlayerStateType.crouching)
             return;
-        if (_state == MovementState.walking)
+        if (_playerState.CurrentState == PlayerState.PlayerStateType.walking)
         {
-            _state = MovementState.sprinting;
+            _playerState.CurrentState = PlayerState.PlayerStateType.sprinting;
         }
         else
         {
-            _state = MovementState.walking;
+            _playerState.CurrentState = PlayerState.PlayerStateType.walking;
         }
     }
 
@@ -174,29 +177,29 @@ public class PlayerMove : MonoBehaviour
 
     private void OnInputCrouch(InputAction.CallbackContext context)
     {
-        if (_state != MovementState.crouching && !_isAir)
+        if (_playerState.CurrentState != PlayerState.PlayerStateType.crouching && !_isAir)
         {
-            _state = MovementState.crouching;
+            _playerState.CurrentState = PlayerState.PlayerStateType.crouching;
             transform.localScale = new Vector3(transform.localScale.x, _crouchYScale, transform.localScale.z);
         }
         else
         {
-            _state = MovementState.walking;
+            _playerState.CurrentState = PlayerState.PlayerStateType.walking;
             transform.localScale = new Vector3(transform.localScale.x, _startYScale, transform.localScale.z);
         }
     }
 
     private void StateHandler()
     {
-        switch (_state)
+        switch (_playerState.CurrentState)
         {
-            case MovementState.walking:
+            case PlayerState.PlayerStateType.walking:
                 _moveSpeed = _walkSpeed;
                 break;
-            case MovementState.crouching:
+            case PlayerState.PlayerStateType.crouching:
                 _moveSpeed = _crouchSpeed;
                 break;
-            case MovementState.sprinting:
+            case PlayerState.PlayerStateType.sprinting:
                 _moveSpeed = _sprintSpeed;
                 break;
         }
@@ -206,13 +209,5 @@ public class PlayerMove : MonoBehaviour
     {
         _readyToJump = true;
         _exitingSlope = false;
-    }
-
-    private enum MovementState
-    {
-        walking,
-        sprinting,
-        crouching,
-        air
     }
 }
